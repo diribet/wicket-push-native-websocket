@@ -1,0 +1,9 @@
+# ignore eclipse files
+.project
+.classpath
+.settings
+.settings/*
+
+# ignore maven generated files
+target
+/build/
