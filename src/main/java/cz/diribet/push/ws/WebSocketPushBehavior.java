@@ -54,6 +54,8 @@ class WebSocketPushBehavior extends WebSocketBehavior {
 	<EventType> WebSocketPushNode<EventType> addNode(IPushEventHandler<EventType> pushEventHandler) {
 		Args.notNull(pushEventHandler, "pushEventHandler");
 
+		LOG.debug("Installing node on {}", component.getClass().getName());
+
 		WebSocketPushNode<EventType> node = new WebSocketPushNode<>();
 		handlers.put(node, pushEventHandler);
 
@@ -62,6 +64,8 @@ class WebSocketPushBehavior extends WebSocketBehavior {
 
 	<EventType> void removeNode(WebSocketPushNode<EventType> node) {
 		Args.notNull(node, "node");
+
+		LOG.debug("Removing node from {}", component.getClass().getName());
 
 		handlers.remove(node);
 
