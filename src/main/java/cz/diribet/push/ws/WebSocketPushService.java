@@ -59,7 +59,7 @@ public class WebSocketPushService extends AbstractPushService {
 		Args.notNull(component, "component");
 		Args.notNull(handler, "handler");
 
-		LOG.debug("Installing node on {}", component);
+		LOG.debug("Installing node on {}", component.getClass().getName());
 
 		WebSocketPushBehavior behavior = findWebSocketBehavior(component);
 

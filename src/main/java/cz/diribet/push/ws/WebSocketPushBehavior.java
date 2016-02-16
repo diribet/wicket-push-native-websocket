@@ -132,7 +132,7 @@ class WebSocketPushBehavior extends WebSocketBehavior {
 	protected void onConnect(ConnectedMessage message) {
 		super.onConnect(message);
 
-		LOG.debug("Connection on {} opened: {}", component, message);
+		LOG.debug("Connection on {} opened: {}", component.getClass().getName(), message);
 
 		Application application = message.getApplication();
 		String sessionId = message.getSessionId();
@@ -150,7 +150,7 @@ class WebSocketPushBehavior extends WebSocketBehavior {
 	protected void onAbort(AbortedMessage message) {
 		super.onAbort(message);
 
-		LOG.debug("Connection on {} aborted: {}", component, message);
+		LOG.debug("Connection on {} aborted: {}", component.getClass().getName(), message);
 		removeAllNodes();
 	}
 
@@ -158,7 +158,7 @@ class WebSocketPushBehavior extends WebSocketBehavior {
 	protected void onClose(ClosedMessage message) {
 		super.onClose(message);
 
-		LOG.debug("Connection on {} closed: {}", component, message);
+		LOG.debug("Connection on {} closed: {}", component.getClass().getName(), message);
 		removeAllNodes();
 	}
 
