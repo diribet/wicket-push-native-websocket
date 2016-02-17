@@ -32,7 +32,7 @@ import com.google.common.reflect.TypeToken;
  *
  */
 @SuppressWarnings({ "rawtypes", "unchecked" })
-class WebSocketPushBehavior extends WebSocketBehavior {
+public class WebSocketPushBehavior extends WebSocketBehavior {
 
 	//*******************************************
 	// Attributes
