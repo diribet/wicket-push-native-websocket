@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 import org.apache.wicket.Application;
 import org.apache.wicket.Component;
@@ -44,14 +45,45 @@ public class WebSocketPushService extends AbstractPushService {
 	// Methods
 	//*******************************************
 
+	/**
+	 * Returns push service for current application.
+	 *
+	 * @return push service or {@code null}
+	 */
 	public static WebSocketPushService get() {
 		return get(Application.get());
 	}
 
+	/**
+	 * Returns push service for provided application.
+	 *
+	 * @param application
+	 *            an application, must not be {@code null}
+	 * @return push service or {@code null}
+	 */
 	public static WebSocketPushService get(Application application) {
 		Args.notNull(application, "application");
 
-		return INSTANCES.computeIfAbsent(application, a -> new WebSocketPushService());
+		return get(application, a -> new WebSocketPushService());
+	}
+
+	/**
+	 * Returns push service for provided application or create one.
+	 *
+	 * @param application
+	 *            an application, must not be {@code null}
+	 * @param mappingFunction
+	 *            mapping function for creating push service if none for the
+	 *            provided application exists, must not be {@code null}
+	 * @return push service or {@code null}
+	 */
+	public static WebSocketPushService get(Application application, Function<Application,
+										  WebSocketPushService> mappingFunction) {
+
+		Args.notNull(application, "application");
+		Args.notNull(mappingFunction, "function");
+
+		return INSTANCES.computeIfAbsent(application, mappingFunction);
 	}
 
 	@Override
@@ -62,11 +94,23 @@ public class WebSocketPushService extends AbstractPushService {
 		WebSocketPushBehavior behavior = findWebSocketBehavior(component);
 
 		if (behavior == null) {
-			behavior = new WebSocketPushBehavior();
+			behavior = createWebSocketPushBehavior();
+			Args.notNull(behavior, "behavior");
+
 			component.add(behavior);
 		}
 
 		return behavior.addNode(handler);
+	}
+
+	/**
+	 * Creates a new instance of {@link WebSocketPushBehavior}
+	 *
+	 * @return new instance of {@link WebSocketPushBehavior}, never returns
+	 *         {@code null}
+	 */
+	protected WebSocketPushBehavior createWebSocketPushBehavior() {
+		return new WebSocketPushBehavior();
 	}
 
 	private WebSocketPushBehavior findWebSocketBehavior(Component component) {
