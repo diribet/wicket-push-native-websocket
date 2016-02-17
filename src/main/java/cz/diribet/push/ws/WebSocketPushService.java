@@ -77,9 +77,7 @@ public class WebSocketPushService extends AbstractPushService {
 	 *            provided application exists, must not be {@code null}
 	 * @return push service or {@code null}
 	 */
-	public static WebSocketPushService get(Application application, Function<Application,
-										  WebSocketPushService> mappingFunction) {
-
+	public static WebSocketPushService get(Application application, Function<Application, WebSocketPushService> mappingFunction) {
 		Args.notNull(application, "application");
 		Args.notNull(mappingFunction, "function");
 
