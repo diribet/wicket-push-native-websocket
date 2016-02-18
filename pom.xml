@@ -6,7 +6,7 @@
 	
 	<groupId>cz.diribet</groupId>
 	<artifactId>wicket-push-websocket</artifactId>
-	<version>${wicket.push.websocket.version}</version>
+	<version>1.0.0-SNAPSHOT</version>
 	
 	<name>Wicketstuff Push - WebSocket</name>
 	<description>WebSocket implementation of Wicketstuff Push service</description>
@@ -14,7 +14,6 @@
 	<!-- ======================================================================================== -->	
 
 	<properties>	
-		<wicket.push.websocket.version>1.0.0-SNAPSHOT</wicket.push.websocket.version>	
         <wicket.version>7.2.0</wicket.version>
         <wicketstuff.version>7.2.0</wicketstuff.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -77,6 +76,19 @@
 						<addMavenDescriptor>false</addMavenDescriptor>
 					</archive>
 				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+				<version>2.4</version>
+				<executions>
+					<execution>
+						<id>attach-sources</id>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
