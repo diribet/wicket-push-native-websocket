@@ -1,9 +1,13 @@
 package cz.diribet.push.ws;
 
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import org.apache.wicket.Application;
@@ -36,14 +40,41 @@ public class WebSocketPushService extends AbstractPushService {
 	private static final Map<Application, WebSocketPushService> INSTANCES = new ConcurrentHashMap<>();
 
 	private final Map<WebSocketPushNode<?>, IWebSocketConnection> connectionsByNodes = new ConcurrentHashMap<>();
+	private final Map<WebSocketPushNode<?>, Component> componentsByNodes = new ConcurrentHashMap<>();
+
+	private ScheduledExecutorService cleanupExecutorService;
 
 	//*******************************************
 	// Constructors
 	//*******************************************
 
+	public WebSocketPushService() {
+		setCleanupInterval(Duration.ofHours(1));
+	}
+
 	//*******************************************
 	// Methods
 	//*******************************************
+
+	private void cleanUp() {
+		LOG.info("Starting cleaning task...");
+
+		int counter = 0;
+		connectionsByNodes.keySet().forEach(node -> {
+			if (Thread.currentThread().isInterrupted()) {
+				return;
+			}
+			if (!isConnected(node)) {
+
+				Component component = componentsByNodes.get(node);
+				if (component != null) {
+					uninstallNode(component, node);
+				}
+			}
+		});
+
+		LOG.info("Cleaning task finished with {} zombie nodes removed.", counter);
+	}
 
 	/**
 	 * Returns push service for current application.
@@ -84,6 +115,17 @@ public class WebSocketPushService extends AbstractPushService {
 		return INSTANCES.computeIfAbsent(application, mappingFunction);
 	}
 
+	static void onApplicationShutdown(Application application) {
+		Args.notNull(application, "application");
+
+		WebSocketPushService service = INSTANCES.remove(application);
+		if (service != null) {
+
+			LOG.info("Shutting down {}...", service);
+			service.cleanupExecutorService.shutdownNow();
+		}
+	}
+
 	@Override
 	public <EventType> IPushNode<EventType> installNode(Component component, IPushEventHandler<EventType> handler) {
 		Args.notNull(component, "component");
@@ -98,7 +140,10 @@ public class WebSocketPushService extends AbstractPushService {
 			component.add(behavior);
 		}
 
-		return behavior.addNode(handler);
+		WebSocketPushNode<EventType> node = behavior.addNode(handler);
+		componentsByNodes.put(node, component);
+
+		return node;
 	}
 
 	/**
@@ -197,6 +242,7 @@ public class WebSocketPushService extends AbstractPushService {
 	protected <EventType> void onDisconnect(WebSocketPushNode<EventType> node) {
 		disconnectFromAllChannels(node);
 		connectionsByNodes.remove(node);
+		componentsByNodes.remove(node);
 
 		for (IPushNodeDisconnectedListener listener : disconnectListeners) {
 			try {
@@ -205,6 +251,24 @@ public class WebSocketPushService extends AbstractPushService {
 				LOG.error("Failed to notify " + listener, ex);
 			}
 		}
+	}
+
+	/**
+	 * Sets the interval in which the clean up task will be executed that
+	 * removes information about disconnected push nodes. Default is one hour.
+	 *
+	 * @param interval
+	 *            clean up interval, can't bew {@code null}
+	 */
+	public void setCleanupInterval(Duration interval) {
+		Args.notNull(interval, "interval");
+
+		if (cleanupExecutorService != null) {
+			cleanupExecutorService.shutdownNow();
+		}
+
+		cleanupExecutorService = Executors.newSingleThreadScheduledExecutor();
+		cleanupExecutorService.scheduleAtFixedRate(this::cleanUp, 0, interval.toMillis(), TimeUnit.MILLISECONDS);
 	}
 
 }
