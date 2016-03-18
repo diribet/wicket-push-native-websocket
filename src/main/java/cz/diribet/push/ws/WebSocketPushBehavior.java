@@ -102,6 +102,14 @@ public class WebSocketPushBehavior extends WebSocketBehavior {
 	}
 
 	@Override
+	public void onRemove(Component component) {
+		removeAllNodes();
+		this.component = null;
+
+		super.onRemove(component);
+	}
+
+	@Override
 	protected void onPush(WebSocketRequestHandler handler, IWebSocketPushMessage message) {
 		super.onPush(handler, message);
 
