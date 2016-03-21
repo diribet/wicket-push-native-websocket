@@ -12,7 +12,12 @@ import java.util.function.Function;
 
 import org.apache.wicket.Application;
 import org.apache.wicket.Component;
+import org.apache.wicket.Page;
+import org.apache.wicket.protocol.ws.WebSocketSettings;
 import org.apache.wicket.protocol.ws.api.IWebSocketConnection;
+import org.apache.wicket.protocol.ws.api.registry.IKey;
+import org.apache.wicket.protocol.ws.api.registry.IWebSocketConnectionRegistry;
+import org.apache.wicket.protocol.ws.api.registry.PageIdKey;
 import org.apache.wicket.util.lang.Args;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -143,7 +148,38 @@ public class WebSocketPushService extends AbstractPushService {
 		WebSocketPushNode<EventType> node = behavior.addNode(handler);
 		componentsByNodes.put(node, component);
 
+		// When using ajax to replace a component containing an abstract repeater,
+		// new items may be created for every render.
+		// If those items install a push node, we have to connect them manually
+		// because no WebSocketPushBehavior#onConnect will be called - the webSocket connection is already established.
+		autoConnect(component, node);
+
 		return node;
+	}
+
+	private <EventType> void autoConnect(Component component, WebSocketPushNode<EventType> node) {
+		Args.notNull(component, "component");
+		Args.notNull(node, "node");
+
+		Page page = component.getPage();
+
+		if (page != null) {
+			Application application = INSTANCES.entrySet().stream()
+														  .filter(e -> this == e.getValue())
+														  .findFirst()
+														  .get()
+														  .getKey();
+			String sessionId = page.getSession().getId();
+			IKey key = new PageIdKey(page.getPageId());
+
+			WebSocketSettings webSocketSettings = WebSocketSettings.Holder.get(application);
+			IWebSocketConnectionRegistry webSocketConnectionRegistry = webSocketSettings.getConnectionRegistry();
+			IWebSocketConnection webSocketConnection = webSocketConnectionRegistry.getConnection(application, sessionId, key);
+
+			if (webSocketConnection != null) {
+				onConnect(node, webSocketConnection);
+			}
+		}
 	}
 
 	/**
@@ -236,6 +272,7 @@ public class WebSocketPushService extends AbstractPushService {
 	}
 
 	protected <EventType> void onConnect(WebSocketPushNode<EventType> node, IWebSocketConnection webSocketConnection) {
+		LOG.debug("Associating a webSocket connection with node {}", node);
 		connectionsByNodes.put(node, webSocketConnection);
 	}
 
