@@ -62,7 +62,7 @@ public class WebSocketPushService extends AbstractPushService {
 	//*******************************************
 
 	private void cleanUp() {
-		LOG.info("Starting cleaning task...");
+		LOG.debug("Starting cleaning task...");
 
 		int counter = 0;
 		connectionsByNodes.keySet().forEach(node -> {
@@ -78,7 +78,7 @@ public class WebSocketPushService extends AbstractPushService {
 			}
 		});
 
-		LOG.info("Cleaning task finished with {} zombie nodes removed.", counter);
+		LOG.debug("Cleaning task finished with {} zombie nodes removed.", counter);
 	}
 
 	/**
