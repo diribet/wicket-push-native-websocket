@@ -243,9 +243,18 @@ public class WebSocketPushService extends AbstractPushService {
 
 		if (node instanceof WebSocketPushNode) {
 			if (isConnected(node)) {
-				IWebSocketConnection webSocketConnection = connectionsByNodes.get(node);
-				webSocketConnection.sendMessage(new WebSocketPushMessage<>(context));
 
+				// node is connected - so there should be an opened connection
+				IWebSocketConnection webSocketConnection = connectionsByNodes.get(node);
+
+				try {
+					webSocketConnection.sendMessage(new WebSocketPushMessage<>(context));
+				} catch (Throwable t) {
+					LOG.error("An error occured when sending a WebSocket message", t);
+				}
+
+				// return true regardless of an exception was thrown or not
+				// because it just means "the node was served"
 				return true;
 			}
 		} else {
