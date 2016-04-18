@@ -6,7 +6,7 @@
 	
 	<groupId>cz.diribet</groupId>
 	<artifactId>wicket-push-websocket</artifactId>
-	<version>1.0.0-SNAPSHOT</version>
+	<version>${wicket.push.native.websocket.version}</version>
 	
 	<name>Wicketstuff Push - WebSocket</name>
 	<description>WebSocket implementation of Wicketstuff Push service</description>
@@ -14,6 +14,7 @@
 	<!-- ======================================================================================== -->	
 
 	<properties>	
+		<wicket.push.native.websocket.version>1.0.0-SNAPSHOT</wicket.push.native.websocket.version>
         <wicket.version>7.2.0</wicket.version>
         <wicketstuff.version>7.2.0</wicketstuff.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -38,6 +39,19 @@
   			<version>18.0</version>
 		</dependency>
 	</dependencies>
+	
+	<!-- ======================================================================================== -->
+	
+	<distributionManagement>
+		<repository>
+			<id>diribet.release</id>
+			<url>https://ci.diribet.com/nexus/content/repositories/releases</url>
+		</repository>
+		<snapshotRepository>
+			<id>diribet.snapshot</id>
+			<url>https://ci.diribet.com/nexus/content/repositories/snapshots</url>
+		</snapshotRepository>
+	</distributionManagement>
 	
 	<!-- ======================================================================================== -->
 
