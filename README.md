@@ -4,14 +4,14 @@ Native WebSockets implementation of the Wicketstuff Push service.
 
 ### How to use it
 
-We are not publish to any Maven repository, so you need to install it to your local Maven repository.
+We are not publish to any public Maven repository, so you need to install it to your local Maven repository.
 Then add dependency in your maven pom file as follows:
 
 ```xml
 <dependency>
   	<groupId>cz.diribet</groupId>
   	<artifactId>wicket-push-websocket</artifactId>
-  	<version>1.0.0</version>
+  	<version>x.x.x</version>
 </dependency>
 ```
 

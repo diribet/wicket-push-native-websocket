@@ -14,7 +14,7 @@
 	<!-- ======================================================================================== -->	
 
 	<properties>	
-		<wicket.push.native.websocket.version>1.0.0-SNAPSHOT</wicket.push.native.websocket.version>
+		<wicket.push.native.websocket.version>1.1.0-SNAPSHOT</wicket.push.native.websocket.version>
         <wicket.version>7.2.0</wicket.version>
         <wicketstuff.version>7.2.0</wicketstuff.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
