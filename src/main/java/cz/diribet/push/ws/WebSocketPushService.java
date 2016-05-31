@@ -153,7 +153,12 @@ public class WebSocketPushService extends AbstractPushService {
 		if (service != null) {
 
 			LOG.info("Shutting down {}...", service);
-			service.cleanupExecutorService.shutdownNow();
+
+			if (service.cleanupExecutorService != null) {
+				service.cleanupExecutorService.shutdownNow();
+			}
+
+			service.queuedEventsExecutorService.shutdownNow();
 		}
 	}
 
