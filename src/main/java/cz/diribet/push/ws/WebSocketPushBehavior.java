@@ -2,6 +2,7 @@ package cz.diribet.push.ws;
 
 import static java.util.stream.Collectors.toList;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -115,26 +116,28 @@ public class WebSocketPushBehavior extends WebSocketBehavior {
 
 		if (message instanceof WebSocketPushMessage) {
 			WebSocketPushMessage pushMessage = (WebSocketPushMessage) message;
-			WebSocketPushEventContext context = pushMessage.getContext();
-			Class<?> eventClass = context.getEvent().getClass();
+			List<WebSocketPushEventContext> contexts = pushMessage.getContexts();
+			WebSocketAjaxRequestTargetAdapter ajaxRequestTarget = new WebSocketAjaxRequestTargetAdapter(handler);
 
 			handlers.forEach((node, eventHandler) -> {
+				for (WebSocketPushEventContext context : contexts) {
+					Class<?> eventClass = context.getEvent().getClass();
 
-				// do some reflection voodoo to check if the handler supports this message type
-				TypeToken<? extends IPushEventHandler> handlerTypeToken = TypeToken.of(eventHandler.getClass());
-				TypeToken<?> handlerEventTypeToken = handlerTypeToken.resolveType(IPushEventHandler.class.getTypeParameters()[0]);
+					// do some reflection voodoo to check if the handler supports this message type
+					TypeToken<? extends IPushEventHandler> handlerTypeToken = TypeToken.of(eventHandler.getClass());
+					TypeToken<?> handlerEventTypeToken = handlerTypeToken.resolveType(IPushEventHandler.class.getTypeParameters()[0]);
 
-				if (!handlerEventTypeToken.isAssignableFrom(eventClass)) {
-					String logMessage = "Push skipped, reason: context message type {} is not compatible with EventHandler mesage type {}";
-					LOG.debug(logMessage, eventClass.getName(), handlerEventTypeToken.getRawType().getName());
-					return;
-				}
+					if (!handlerEventTypeToken.isAssignableFrom(eventClass)) {
+						String logMessage = "Push skipped, reason: context message type {} is not compatible with EventHandler mesage type {}";
+						LOG.debug(logMessage, eventClass.getName(), handlerEventTypeToken.getRawType().getName());
+						return;
+					}
 
-				try {
-					WebSocketAjaxRequestTargetAdapter ajaxRequestTarget = new WebSocketAjaxRequestTargetAdapter(handler);
-					eventHandler.onEvent(ajaxRequestTarget, context.getEvent(), node, context);
-				} catch (RuntimeException e) {
-					LOG.error("Failed while processing event", e);
+					try {
+						eventHandler.onEvent(ajaxRequestTarget, context.getEvent(), node, context);
+					} catch (RuntimeException e) {
+						LOG.error("Failed while processing event", e);
+					}
 				}
 			});
 		}

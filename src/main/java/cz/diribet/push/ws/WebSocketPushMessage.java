@@ -1,5 +1,7 @@
 package cz.diribet.push.ws;
 
+import java.util.List;
+
 import org.apache.wicket.protocol.ws.api.message.IWebSocketPushMessage;
 
 class WebSocketPushMessage<EventType> implements IWebSocketPushMessage {
@@ -8,14 +10,14 @@ class WebSocketPushMessage<EventType> implements IWebSocketPushMessage {
 	// Attributes
 	//*******************************************
 
-	private final WebSocketPushEventContext<EventType> context;
+	private final List<WebSocketPushEventContext<EventType>> contexts;
 
 	//*******************************************
 	// Constructors
 	//*******************************************
 
-	WebSocketPushMessage(WebSocketPushEventContext<EventType> context) {
-		this.context = context;
+	WebSocketPushMessage(List<WebSocketPushEventContext<EventType>> contexts) {
+		this.contexts = contexts;
 	}
 
 	//*******************************************
@@ -26,7 +28,7 @@ class WebSocketPushMessage<EventType> implements IWebSocketPushMessage {
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((context == null) ? 0 : context.hashCode());
+		result = prime * result + ((contexts == null) ? 0 : contexts.hashCode());
 		return result;
 	}
 
@@ -42,11 +44,11 @@ class WebSocketPushMessage<EventType> implements IWebSocketPushMessage {
 			return false;
 		}
 		WebSocketPushMessage<?> other = (WebSocketPushMessage<?>) obj;
-		if (context == null) {
-			if (other.context != null) {
+		if (contexts == null) {
+			if (other.contexts != null) {
 				return false;
 			}
-		} else if (!context.equals(other.context)) {
+		} else if (!contexts.equals(other.contexts)) {
 			return false;
 		}
 		return true;
@@ -55,8 +57,8 @@ class WebSocketPushMessage<EventType> implements IWebSocketPushMessage {
 	@Override
 	public String toString() {
 		StringBuilder builder = new StringBuilder();
-		builder.append("WebSocketPushMessage [context=");
-		builder.append(context);
+		builder.append("WebSocketPushMessage [contexts=");
+		builder.append(contexts);
 		builder.append("]");
 		return builder.toString();
 	}
@@ -65,8 +67,8 @@ class WebSocketPushMessage<EventType> implements IWebSocketPushMessage {
 	// Getters/Setters
 	//*******************************************
 
-	public WebSocketPushEventContext<EventType> getContext() {
-		return context;
+	public List<WebSocketPushEventContext<EventType>> getContexts() {
+		return contexts;
 	}
 
 }
