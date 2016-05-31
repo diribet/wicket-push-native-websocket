@@ -386,7 +386,7 @@ public class WebSocketPushService extends AbstractPushService {
 			cleanupExecutorService.shutdownNow();
 		}
 
-		cleanupExecutorService = Executors.newSingleThreadScheduledExecutor();
+		cleanupExecutorService = Executors.newSingleThreadScheduledExecutor(threadFactory);
 		cleanupExecutorService.scheduleAtFixedRate(this::cleanUp, interval.toMillis(), interval.toMillis(), TimeUnit.MILLISECONDS);
 	}
 
