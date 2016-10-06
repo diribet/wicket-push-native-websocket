@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -34,7 +33,6 @@ import org.wicketstuff.push.IPushService;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
-
 /**
  * Native WebSocket based implementation of {@link IPushService}.
  *
@@ -52,20 +50,17 @@ public class WebSocketPushService extends AbstractPushService {
 	private static final Map<Application, WebSocketPushService> INSTANCES = new ConcurrentHashMap<>();
 
 	private final Map<WebSocketPushNode<?>, IWebSocketConnection> connectionsByNodes = new ConcurrentHashMap<>();
-	private final Map<WebSocketPushNode<?>, Component> componentsByNodes = new ConcurrentHashMap<>();
+	private final Map<WebSocketPushNode<?>, PushNodeInstallationState> nodeInstallationStates = new ConcurrentHashMap<>();
 
-	private final ConcurrentMap<WebSocketPushNode<?>, PushNodeInstallationState> nodeInstallationStates = new ConcurrentHashMap<>();
-
-	private final ThreadFactory threadFactory;
-	private final ExecutorService queuedEventsExecutorService;
+	private final ExecutorService publishExecutorService;
 
 	//*******************************************
 	// Constructors
 	//*******************************************
 
 	public WebSocketPushService() {
-		threadFactory = new ThreadFactoryBuilder().setNameFormat("wicket-websocket-push-service-%d").build();
-		queuedEventsExecutorService = Executors.newCachedThreadPool(threadFactory);
+		ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("wicket-websocket-push-service-%d").build();
+		publishExecutorService = Executors.newCachedThreadPool(threadFactory);
 	}
 
 	//*******************************************
@@ -118,7 +113,7 @@ public class WebSocketPushService extends AbstractPushService {
 		if (service != null) {
 
 			LOG.info("Shutting down {}...", service);
-			service.queuedEventsExecutorService.shutdownNow();
+			service.publishExecutorService.shutdownNow();
 		}
 	}
 
@@ -138,9 +133,8 @@ public class WebSocketPushService extends AbstractPushService {
 
 		WebSocketPushNode<EventType> node = behavior.addNode(handler);
 		nodeInstallationStates.put(node, new PushNodeInstallationState());
-		componentsByNodes.put(node, component);
 
-		// When using ajax to replace or add a component, new Components may be created.
+		// When using ajax to replace or add a component, new components may be created.
 		// If those components install a push node, we have to connect them manually
 		// because no WebSocketPushBehavior#onConnect will be called - the webSocket connection is already established.
 		autoConnect(component, node);
@@ -205,21 +199,22 @@ public class WebSocketPushService extends AbstractPushService {
 			throw new IllegalArgumentException("Unknown channel " + channel);
 		}
 
-		// every node registered on the same behavior belongs to the same connetion,
-		// so we need to be sure we publish to each connection only once
-		Set<IWebSocketConnection> usedConnections = new HashSet<>();
+		publishExecutorService.submit(() -> {
+			// every node registered on the same behavior belongs to the same connetion,
+			// so we need to be sure we publish to each connection only once
+			Set<IWebSocketConnection> usedConnections = new HashSet<>();
 
-		for (IPushNode<?> node: nodes) {
-			IWebSocketConnection connection = connectionsByNodes.get(node);
+			for (IPushNode<?> node: nodes) {
+				IWebSocketConnection connection = connectionsByNodes.get(node);
 
-			if (!usedConnections.contains(connection)) {
-				WebSocketPushEventContext<EventType> context = new WebSocketPushEventContext<>(event, channel, this);
-				boolean success = publishToNode(node, Collections.singletonList(context));
-				if (success) {
-					usedConnections.add(connection);
+				if (!usedConnections.contains(connection)) {
+					WebSocketPushEventContext<EventType> context = new WebSocketPushEventContext<>(event, channel, this);
+					if (publishToNode(node, Collections.singletonList(context))) {
+						usedConnections.add(connection);
+					}
 				}
 			}
-		}
+		});
 	}
 
 	@Override
@@ -227,7 +222,10 @@ public class WebSocketPushService extends AbstractPushService {
 		Args.notNull(node, "node");
 
 		WebSocketPushEventContext<EventType> context = new WebSocketPushEventContext<>(event, null, this);
-		publishToNode(node, Collections.singletonList(context));
+
+		publishExecutorService.submit(() -> {
+			publishToNode(node, Collections.singletonList(context));
+		});
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
@@ -312,9 +310,7 @@ public class WebSocketPushService extends AbstractPushService {
 			PushNodeInstallationState nodeInstallationState = nodeInstallationStates.remove(node);
 
 			if (nodeInstallationState != null && !nodeInstallationState.queuedEvents.isEmpty()) {
-				queuedEventsExecutorService.submit(() -> {
-					publishToNode(node, nodeInstallationState.queuedEvents);
-				});
+				publishToNode(node, nodeInstallationState.queuedEvents);
 			}
 		}
 	}
@@ -324,7 +320,6 @@ public class WebSocketPushService extends AbstractPushService {
 
 		disconnectFromAllChannels(node);
 		connectionsByNodes.remove(node);
-		componentsByNodes.remove(node);
 		nodeInstallationStates.remove(node);
 
 		for (IPushNodeDisconnectedListener listener : disconnectListeners) {
