@@ -35,15 +35,35 @@ Take a look at the [Wicket documentation](https://ci.apache.org/projects/wicket/
 
 ### API
 
-Install a node to any component you need to push to. This should be done in its constructor or onInitialize method.
+Install a node to any component you need to push to. This should be done in its constructor or onConfigure method.
 
 ```java
-IPushChannel<EventType> channel = ...
-IPushEventHandler<EventType> handler = ...
+IPushNode<EventType> pushNode = null;
 
-IPushService pushService = WebSocketPushService.get();
-IPushNode<EventType> pushNode = pushService.installNode(this, handler);
-pushService.connectToChannel(pushNode, channel);
+@Override
+protected void onConfigure() {
+	super.onConfigure();
+
+	IPushChannel<EventType> channel = ...
+	IPushEventHandler<EventType> handler = ...
+
+	IPushService pushService = WebSocketPushService.get();
+
+	if (pushNode == null || !pushService.isConnected(pushNode)) {
+		pushNode = pushService.installNode(getPage(), handler);
+		pushService.connectToChannel(pushNode, channel);
+	}
+}
+
+@Override
+protected void onRemove() {
+	if (pushNode != null) {
+		IPushService pushService = WebSocketPushService.get();
+		pushService.uninstallNode(getPage(), pushNode);
+	}
+
+	super.onRemove();
+}
 ```
 
 later, you can push a message to all nodes from a channel or to a specific node
