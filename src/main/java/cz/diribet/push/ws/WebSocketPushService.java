@@ -1,7 +1,5 @@
 package cz.diribet.push.ws;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -12,9 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -58,17 +54,10 @@ public class WebSocketPushService extends AbstractPushService {
 	private final Map<WebSocketPushNode<?>, IWebSocketConnection> connectionsByNodes = new ConcurrentHashMap<>();
 	private final Map<WebSocketPushNode<?>, Component> componentsByNodes = new ConcurrentHashMap<>();
 
-	private final ConcurrentMap<WebSocketPushNode<?>, PushNodeInstallationState> nodeInstallationStates =
-			new ConcurrentHashMap<WebSocketPushNode<?>, PushNodeInstallationState>();
-
-	/**
-	 * Max duration between installNode and establishing websocket connection (onConnect)
-	 */
-	private Duration maxConnectionLag = Duration.ofMinutes(10);
+	private final ConcurrentMap<WebSocketPushNode<?>, PushNodeInstallationState> nodeInstallationStates = new ConcurrentHashMap<>();
 
 	private final ThreadFactory threadFactory;
 	private final ExecutorService queuedEventsExecutorService;
-	private ScheduledExecutorService cleanupExecutorService;
 
 	//*******************************************
 	// Constructors
@@ -77,35 +66,11 @@ public class WebSocketPushService extends AbstractPushService {
 	public WebSocketPushService() {
 		threadFactory = new ThreadFactoryBuilder().setNameFormat("wicket-websocket-push-service-%d").build();
 		queuedEventsExecutorService = Executors.newCachedThreadPool(threadFactory);
-
-		setCleanupInterval(Duration.ofHours(1));
 	}
 
 	//*******************************************
 	// Methods
 	//*******************************************
-
-	private void cleanUp() {
-		LOG.debug("Starting cleaning task...");
-
-		int counter = 0;
-		connectionsByNodes.keySet().forEach(node -> {
-			if (Thread.currentThread().isInterrupted()) {
-				return;
-			}
-			if (!isConnected(node)) {
-
-				Component component = componentsByNodes.get(node);
-				if (component != null) {
-					uninstallNode(component, node);
-				}
-			}
-		});
-
-		nodeInstallationStates.values().removeIf(state -> state.isTimedOut());
-
-		LOG.debug("Cleaning task finished with {} zombie nodes removed.", counter);
-	}
 
 	/**
 	 * Returns push service for current application.
@@ -153,11 +118,6 @@ public class WebSocketPushService extends AbstractPushService {
 		if (service != null) {
 
 			LOG.info("Shutting down {}...", service);
-
-			if (service.cleanupExecutorService != null) {
-				service.cleanupExecutorService.shutdownNow();
-			}
-
 			service.queuedEventsExecutorService.shutdownNow();
 		}
 	}
@@ -180,9 +140,8 @@ public class WebSocketPushService extends AbstractPushService {
 		nodeInstallationStates.put(node, new PushNodeInstallationState());
 		componentsByNodes.put(node, component);
 
-		// When using ajax to replace a component containing an abstract repeater,
-		// new items may be created for every render.
-		// If those items install a push node, we have to connect them manually
+		// When using ajax to replace or add a component, new Components may be created.
+		// If those components install a push node, we have to connect them manually
 		// because no WebSocketPushBehavior#onConnect will be called - the webSocket connection is already established.
 		autoConnect(component, node);
 
@@ -377,38 +336,14 @@ public class WebSocketPushService extends AbstractPushService {
 		}
 	}
 
-	/**
-	 * Sets the interval in which the clean up task will be executed that
-	 * removes information about disconnected push nodes. Default is one hour.
-	 *
-	 * @param interval
-	 *            clean up interval, can't bew {@code null}
-	 */
-	public void setCleanupInterval(Duration interval) {
-		Args.notNull(interval, "interval");
-
-		if (cleanupExecutorService != null) {
-			cleanupExecutorService.shutdownNow();
-		}
-
-		cleanupExecutorService = Executors.newSingleThreadScheduledExecutor(threadFactory);
-		cleanupExecutorService.scheduleAtFixedRate(this::cleanUp, interval.toMillis(), interval.toMillis(), TimeUnit.MILLISECONDS);
-	}
-
 	//*******************************************
 	// Inner classes
 	//*******************************************
 
 	private final class PushNodeInstallationState {
-		private LocalDateTime installedAt = LocalDateTime.now();
-		private List<WebSocketPushEventContext<?>> queuedEvents = new LinkedList<WebSocketPushEventContext<?>>();
 
-		PushNodeInstallationState() {
-		}
+		private final List<WebSocketPushEventContext<?>> queuedEvents = new LinkedList<>();
 
-		boolean isTimedOut() {
-			return Duration.between(installedAt, LocalDateTime.now()).compareTo(maxConnectionLag) > 0;
-		}
 	}
 
 }
