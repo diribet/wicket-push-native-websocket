@@ -13,6 +13,7 @@ import org.apache.wicket.protocol.ws.api.IWebSocketConnection;
 import org.apache.wicket.protocol.ws.api.WebSocketBehavior;
 import org.apache.wicket.protocol.ws.api.WebSocketRequestHandler;
 import org.apache.wicket.protocol.ws.api.message.AbortedMessage;
+import org.apache.wicket.protocol.ws.api.message.AbstractClientMessage;
 import org.apache.wicket.protocol.ws.api.message.ClosedMessage;
 import org.apache.wicket.protocol.ws.api.message.ConnectedMessage;
 import org.apache.wicket.protocol.ws.api.message.IWebSocketPushMessage;
@@ -150,12 +151,7 @@ public class WebSocketPushBehavior extends WebSocketBehavior {
 		LOG.debug("Connection on {} opened: {}", component.getClass().getName(), message);
 
 		Application application = message.getApplication();
-		String sessionId = message.getSessionId();
-		IKey key = message.getKey();
-
-		WebSocketSettings webSocketSettings = WebSocketSettings.Holder.get(application);
-		IWebSocketConnectionRegistry webSocketConnectionRegistry = webSocketSettings.getConnectionRegistry();
-		IWebSocketConnection webSocketConnection = webSocketConnectionRegistry.getConnection(application, sessionId, key);
+		IWebSocketConnection webSocketConnection = getConnection(message);
 
 		WebSocketPushService pushService = WebSocketPushService.get(application);
 		handlers.keySet().forEach(node -> pushService.onConnect(node, webSocketConnection));
@@ -163,22 +159,46 @@ public class WebSocketPushBehavior extends WebSocketBehavior {
 
 	@Override
 	protected void onAbort(AbortedMessage message) {
-		super.onAbort(message);
+		IWebSocketConnection webSocketConnection = getConnection(message);
+
+		if (webSocketConnection != null && webSocketConnection.isOpen()) {
+			return;
+		}
 
 		LOG.debug("Connection on {} aborted: {}", component.getClass().getName(), message);
 		removeAllNodes();
+
+		super.onAbort(message);
 	}
 
 	@Override
 	protected void onClose(ClosedMessage message) {
-		super.onClose(message);
+		IWebSocketConnection webSocketConnection = getConnection(message);
+
+		if (webSocketConnection != null && webSocketConnection.isOpen()) {
+			return;
+		}
 
 		LOG.debug("Connection on {} closed: {}", component.getClass().getName(), message);
 		removeAllNodes();
+
+		super.onClose(message);
 	}
 
 	private void removeAllNodes() {
 		handlers.keySet().stream().collect(toList()).forEach(this::removeNode);
+	}
+
+	private IWebSocketConnection getConnection(AbstractClientMessage message) {
+		Args.notNull(message, "message");
+
+		Application application = message.getApplication();
+		String sessionId = message.getSessionId();
+		IKey key = message.getKey();
+
+		WebSocketSettings webSocketSettings = WebSocketSettings.Holder.get(application);
+		IWebSocketConnectionRegistry webSocketConnectionRegistry = webSocketSettings.getConnectionRegistry();
+		return webSocketConnectionRegistry.getConnection(application, sessionId, key);
 	}
 
 }
