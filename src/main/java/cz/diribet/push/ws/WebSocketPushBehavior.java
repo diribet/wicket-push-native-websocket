@@ -128,7 +128,7 @@ public class WebSocketPushBehavior extends WebSocketBehavior {
 					TypeToken<? extends IPushEventHandler> handlerTypeToken = TypeToken.of(eventHandler.getClass());
 					TypeToken<?> handlerEventTypeToken = handlerTypeToken.resolveType(IPushEventHandler.class.getTypeParameters()[0]);
 
-					if (!handlerEventTypeToken.isAssignableFrom(eventClass)) {
+					if (!handlerEventTypeToken.isSupertypeOf(eventClass)) {
 						String logMessage = "Push skipped, reason: context message type {} is not compatible with EventHandler mesage type {}";
 						LOG.debug(logMessage, eventClass.getName(), handlerEventTypeToken.getRawType().getName());
 						return;
