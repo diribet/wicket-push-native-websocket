@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -199,7 +200,7 @@ public class WebSocketPushService extends AbstractPushService {
 			throw new IllegalArgumentException("Unknown channel " + channel);
 		}
 
-		publishExecutorService.submit(() -> {
+		executePublishTask(() -> {
 			// every node registered on the same behavior belongs to the same connetion,
 			// so we need to be sure we publish to each connection only once
 			Set<IWebSocketConnection> usedConnections = new HashSet<>();
@@ -223,9 +224,21 @@ public class WebSocketPushService extends AbstractPushService {
 
 		WebSocketPushEventContext<EventType> context = new WebSocketPushEventContext<>(event, null, this);
 
-		publishExecutorService.submit(() -> {
+		executePublishTask(() -> {
 			publishToNode(node, Collections.singletonList(context));
 		});
+	}
+
+	private void executePublishTask(Runnable task) {
+		try {
+
+			publishExecutorService.submit(task);
+
+		} catch (RejectedExecutionException e) {
+			if (!publishExecutorService.isShutdown()) {
+				throw e;
+			}
+		}
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
