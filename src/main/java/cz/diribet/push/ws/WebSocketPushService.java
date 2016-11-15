@@ -1,22 +1,31 @@
 package cz.diribet.push.ws;
 
+import static java.util.stream.Collectors.toList;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.wicket.Application;
 import org.apache.wicket.Component;
 import org.apache.wicket.Page;
+import org.apache.wicket.ThreadContext;
 import org.apache.wicket.protocol.ws.WebSocketSettings;
 import org.apache.wicket.protocol.ws.api.IWebSocketConnection;
 import org.apache.wicket.protocol.ws.api.registry.IKey;
@@ -50,23 +59,64 @@ public class WebSocketPushService extends AbstractPushService {
 
 	private static final Map<Application, WebSocketPushService> INSTANCES = new ConcurrentHashMap<>();
 
+	/**
+	 * Max duration between installNode and establishing websocket connection (onConnect)
+	 */
+	private static final Duration MAX_CONNECTION_LAG = Duration.ofMinutes(10);
+
 	private final Map<WebSocketPushNode<?>, IWebSocketConnection> connectionsByNodes = new ConcurrentHashMap<>();
+	private final Map<WebSocketPushNode<?>, Component> componentsByNodes = new ConcurrentHashMap<>();
 	private final Map<WebSocketPushNode<?>, PushNodeInstallationState> nodeInstallationStates = new ConcurrentHashMap<>();
 
 	private final ExecutorService publishExecutorService;
+	private ScheduledExecutorService cleanupExecutorService;
 
 	//*******************************************
 	// Constructors
 	//*******************************************
 
 	public WebSocketPushService() {
-		ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("wicket-websocket-push-service-%d").build();
+		ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("websocket-push-service-publish-%d").build();
 		publishExecutorService = Executors.newCachedThreadPool(threadFactory);
+
+		setCleanupInterval(Duration.ofHours(1));
 	}
 
 	//*******************************************
 	// Methods
 	//*******************************************
+
+	private void cleanUp() {
+		LOG.debug("Starting cleaning task...");
+
+		AtomicInteger counter = new AtomicInteger();
+
+		for (Entry<WebSocketPushNode<?>, PushNodeInstallationState> entry : nodeInstallationStates.entrySet()) {
+			if (Thread.currentThread().isInterrupted()) {
+				return;
+			}
+
+			WebSocketPushNode<?> node = entry.getKey();
+
+			if (!isConnected(node)) {
+				PushNodeInstallationState installationState = entry.getValue();
+				if (installationState != null && !installationState.isTimedOut()) {
+					// the node is not connected, but also it's not yet timed out
+					// so give it a little time to live
+					continue;
+				}
+
+				Component component = componentsByNodes.get(node);
+				if (component != null) {
+
+					uninstallNode(component, node);
+					counter.incrementAndGet();
+				}
+			}
+		}
+
+		LOG.debug("Cleaning task finished with {} zombie nodes removed.", counter);
+	}
 
 	/**
 	 * Returns push service for current application.
@@ -114,6 +164,11 @@ public class WebSocketPushService extends AbstractPushService {
 		if (service != null) {
 
 			LOG.info("Shutting down {}...", service);
+
+			if (service.cleanupExecutorService != null) {
+				service.cleanupExecutorService.shutdownNow();
+			}
+
 			service.publishExecutorService.shutdownNow();
 		}
 	}
@@ -134,6 +189,7 @@ public class WebSocketPushService extends AbstractPushService {
 
 		WebSocketPushNode<EventType> node = behavior.addNode(handler);
 		nodeInstallationStates.put(node, new PushNodeInstallationState());
+		componentsByNodes.put(node, component);
 
 		// When using ajax to replace or add a component, new components may be created.
 		// If those components install a push node, we have to connect them manually
@@ -150,11 +206,7 @@ public class WebSocketPushService extends AbstractPushService {
 		Page page = component.getPage();
 
 		if (page != null) {
-			Application application = INSTANCES.entrySet().stream()
-														  .filter(e -> this == e.getValue())
-														  .findFirst()
-														  .get()
-														  .getKey();
+			Application application = getApplication();
 			String sessionId = page.getSession().getId();
 			IKey key = new PageIdKey(page.getPageId());
 
@@ -189,6 +241,14 @@ public class WebSocketPushService extends AbstractPushService {
 
 		IWebSocketConnection webSocketConnection = connectionsByNodes.get(node);
 		return webSocketConnection != null && webSocketConnection.isOpen();
+	}
+
+	private Application getApplication() {
+		return INSTANCES.entrySet().stream()
+				  				   .filter(e -> this == e.getValue())
+				  				   .findFirst()
+				  				   .get()
+				  				   .getKey();
 	}
 
 	@Override
@@ -323,7 +383,11 @@ public class WebSocketPushService extends AbstractPushService {
 			PushNodeInstallationState nodeInstallationState = nodeInstallationStates.remove(node);
 
 			if (nodeInstallationState != null && !nodeInstallationState.queuedEvents.isEmpty()) {
-				publishToNode(node, nodeInstallationState.queuedEvents);
+				List<WebSocketPushEventContext<?>> events = nodeInstallationState.queuedEvents.stream().collect(toList());
+
+				// publish all stored events
+				publishToNode(node, events);
+				nodeInstallationState.queuedEvents.removeAll(events);
 			}
 		}
 	}
@@ -332,7 +396,9 @@ public class WebSocketPushService extends AbstractPushService {
 		LOG.debug("Disconnecting node {}", node);
 
 		disconnectFromAllChannels(node);
+
 		connectionsByNodes.remove(node);
+		componentsByNodes.remove(node);
 		nodeInstallationStates.remove(node);
 
 		for (IPushNodeDisconnectedListener listener : disconnectListeners) {
@@ -344,13 +410,48 @@ public class WebSocketPushService extends AbstractPushService {
 		}
 	}
 
+	/**
+	 * Sets the interval in which the clean up task will be executed that
+	 * removes information about disconnected push nodes. Default is one hour.
+	 *
+	 * @param interval
+	 *            clean up interval, can't bew {@code null}
+	 */
+	public void setCleanupInterval(Duration interval) {
+		Args.notNull(interval, "interval");
+
+		if (cleanupExecutorService != null) {
+			cleanupExecutorService.shutdownNow();
+		}
+
+		ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("websocket-push-service-clean-%d").build();
+		cleanupExecutorService = Executors.newSingleThreadScheduledExecutor(threadFactory);
+		cleanupExecutorService.scheduleAtFixedRate(() -> {
+
+			try {
+				ThreadContext.setApplication(getApplication());
+
+				cleanUp();
+
+			} catch (Throwable t) {
+				LOG.error("An error occurred while running cleanup task.", t);
+			}
+
+		}, interval.toMillis(), interval.toMillis(), TimeUnit.MILLISECONDS);
+	}
+
 	//*******************************************
 	// Inner classes
 	//*******************************************
 
-	private final class PushNodeInstallationState {
+	private static final class PushNodeInstallationState {
 
+		private final LocalDateTime installedAt = LocalDateTime.now();
 		private final List<WebSocketPushEventContext<?>> queuedEvents = new LinkedList<>();
+
+		boolean isTimedOut() {
+			return Duration.between(installedAt, LocalDateTime.now()).compareTo(MAX_CONNECTION_LAG) > 0;
+		}
 
 	}
 
