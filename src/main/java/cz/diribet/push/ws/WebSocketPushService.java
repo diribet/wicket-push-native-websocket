@@ -18,7 +18,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -87,10 +86,9 @@ public class WebSocketPushService extends AbstractPushService {
 	//*******************************************
 
 	private void cleanUp() {
-		LOG.debug("Starting cleaning task...");
+		LOG.debug("Starting WebSocket push service cleaning task...");
 
-		AtomicInteger counter = new AtomicInteger();
-
+		int unconnectedNodeCount = 0;
 		for (Entry<WebSocketPushNode<?>, PushNodeInstallationState> entry : nodeInstallationStates.entrySet()) {
 			if (Thread.currentThread().isInterrupted()) {
 				return;
@@ -110,12 +108,29 @@ public class WebSocketPushService extends AbstractPushService {
 				if (component != null) {
 
 					uninstallNode(component, node);
-					counter.incrementAndGet();
+					unconnectedNodeCount++;
 				}
 			}
 		}
+		LOG.debug("WebSocket push service cleaning task removed {} zombie nodes (nodes that were installed on server, but never connected with client).", unconnectedNodeCount);
 
-		LOG.debug("Cleaning task finished with {} zombie nodes removed.", counter);
+		// nodes should be cleaned-up when disconnected - this is leak prevention when node clean-up fails on disconnect
+		int disconnectedNodeCount = 0;
+		for (WebSocketPushNode<?> node : connectionsByNodes.keySet()) {
+			if (!isConnected(node)) {
+				Component component = componentsByNodes.get(node);
+
+				if (component != null) {
+					uninstallNode(component, node);
+				} else {
+					onDisconnect(node);
+				}
+				disconnectedNodeCount++;
+			}
+		}
+		if (disconnectedNodeCount > 0) {
+			LOG.warn("WebSocket push service cleaning task removed {} disconnected nodes (nodes that are disconnected from client, but not removed from service by onDisconnect).", disconnectedNodeCount);
+		}
 	}
 
 	/**
