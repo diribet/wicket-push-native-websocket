@@ -74,7 +74,9 @@ public class WebSocketPushService extends AbstractPushService {
 	// Constructors
 	//*******************************************
 
-	public WebSocketPushService() {
+	public WebSocketPushService(Application application) {
+		application.getRequestCycleListeners().add(new WebSocketRequestCycleListener(application));
+
 		ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("websocket-push-service-publish-%d").build();
 		publishExecutorService = Executors.newCachedThreadPool(threadFactory);
 
@@ -152,7 +154,7 @@ public class WebSocketPushService extends AbstractPushService {
 	public static WebSocketPushService get(Application application) {
 		Args.notNull(application, "application");
 
-		return get(application, a -> new WebSocketPushService());
+		return get(application, WebSocketPushService::new);
 	}
 
 	/**
