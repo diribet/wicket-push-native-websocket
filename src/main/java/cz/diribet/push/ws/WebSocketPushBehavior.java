@@ -97,6 +97,8 @@ public class WebSocketPushBehavior extends WebSocketBehavior {
 
 	@Override
 	public void unbind(Component component) {
+		LOG.debug("Unbinding behavior from {}", component);
+
 		removeAllNodes();
 		this.component = null;
 
@@ -105,6 +107,8 @@ public class WebSocketPushBehavior extends WebSocketBehavior {
 
 	@Override
 	public void onRemove(Component component) {
+		LOG.debug("Removing behavior from {}", component);
+
 		removeAllNodes();
 		this.component = null;
 
@@ -159,12 +163,6 @@ public class WebSocketPushBehavior extends WebSocketBehavior {
 
 	@Override
 	protected void onAbort(AbortedMessage message) {
-		IWebSocketConnection webSocketConnection = getConnection(message);
-
-		if (webSocketConnection != null && webSocketConnection.isOpen()) {
-			return;
-		}
-
 		LOG.debug("Connection on {} aborted: {}", component.getClass().getName(), message);
 		removeAllNodes();
 
@@ -173,12 +171,6 @@ public class WebSocketPushBehavior extends WebSocketBehavior {
 
 	@Override
 	protected void onClose(ClosedMessage message) {
-		IWebSocketConnection webSocketConnection = getConnection(message);
-
-		if (webSocketConnection != null && webSocketConnection.isOpen()) {
-			return;
-		}
-
 		LOG.debug("Connection on {} closed: {}", component.getClass().getName(), message);
 		removeAllNodes();
 
