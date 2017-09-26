@@ -14,9 +14,11 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -63,6 +65,11 @@ public class WebSocketPushService extends AbstractPushService {
 	 */
 	private static final Duration MAX_CONNECTION_LAG = Duration.ofMinutes(10);
 
+	private static final int PUBLISH_THREAD_POOL_MIN_SIZE = 0;
+	private static final int PUBLISH_THREAD_POOL_MAX_SIZE = 40;
+	private static final int PUBLISH_THREAD_POOL_QUEUE_CAPACITY = 10000;
+	private static final int PUBLISH_THREAD_POOL_KEEP_ALIVE_SECONDS = 60;
+
 	private final Map<WebSocketPushNode<?>, IWebSocketConnection> connectionsByNodes = new ConcurrentHashMap<>();
 	private final Map<WebSocketPushNode<?>, Component> componentsByNodes = new ConcurrentHashMap<>();
 	private final Map<WebSocketPushNode<?>, PushNodeInstallationState> nodeInstallationStates = new ConcurrentHashMap<>();
@@ -78,7 +85,13 @@ public class WebSocketPushService extends AbstractPushService {
 		application.getRequestCycleListeners().add(new WebSocketRequestCycleListener(application));
 
 		ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("websocket-push-service-publish-%d").build();
-		publishExecutorService = Executors.newCachedThreadPool(threadFactory);
+
+		publishExecutorService = new ThreadPoolExecutor(PUBLISH_THREAD_POOL_MIN_SIZE,
+														PUBLISH_THREAD_POOL_MAX_SIZE,
+														PUBLISH_THREAD_POOL_KEEP_ALIVE_SECONDS,
+														TimeUnit.SECONDS,
+														new LinkedBlockingQueue<>(PUBLISH_THREAD_POOL_QUEUE_CAPACITY),
+														threadFactory);
 
 		setCleanupInterval(Duration.ofHours(1));
 	}
