@@ -1,5 +1,6 @@
 package cz.diribet.push.ws;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 import java.util.List;
@@ -19,7 +20,6 @@ import org.apache.wicket.protocol.ws.api.message.ConnectedMessage;
 import org.apache.wicket.protocol.ws.api.message.IWebSocketPushMessage;
 import org.apache.wicket.protocol.ws.api.registry.IKey;
 import org.apache.wicket.protocol.ws.api.registry.IWebSocketConnectionRegistry;
-import org.apache.wicket.util.lang.Args;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.wicketstuff.push.IPushEventHandler;
@@ -54,7 +54,7 @@ public class WebSocketPushBehavior extends WebSocketBehavior {
 	//*******************************************
 
 	<EventType> WebSocketPushNode<EventType> addNode(IPushEventHandler<EventType> pushEventHandler) {
-		Args.notNull(pushEventHandler, "pushEventHandler");
+		requireNonNull(pushEventHandler, "pushEventHandler");
 
 		LOG.debug("Installing node on {}", component.getClass().getName());
 
@@ -65,7 +65,7 @@ public class WebSocketPushBehavior extends WebSocketBehavior {
 	}
 
 	<EventType> void removeNode(WebSocketPushNode<EventType> node) {
-		Args.notNull(node, "node");
+		requireNonNull(node, "node");
 
 		LOG.debug("Removing node from {}", component.getClass().getName());
 
@@ -182,7 +182,7 @@ public class WebSocketPushBehavior extends WebSocketBehavior {
 	}
 
 	private IWebSocketConnection getConnection(AbstractClientMessage message) {
-		Args.notNull(message, "message");
+		requireNonNull(message, "message");
 
 		Application application = message.getApplication();
 		String sessionId = message.getSessionId();

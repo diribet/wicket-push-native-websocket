@@ -1,6 +1,7 @@
 package cz.diribet.push.ws;
 
-import org.apache.wicket.util.lang.Args;
+import static java.util.Objects.requireNonNull;
+
 import org.wicketstuff.push.AbstractPushEventContext;
 import org.wicketstuff.push.IPushChannel;
 import org.wicketstuff.push.IPushEventContext;
@@ -28,7 +29,7 @@ class WebSocketPushEventContext<EventType> extends AbstractPushEventContext<Even
 	WebSocketPushEventContext(EventType event, IPushChannel<EventType> channel, WebSocketPushService pushService) {
 		super(event, channel);
 
-		Args.notNull(pushService, "pushService");
+		requireNonNull(pushService, "pushService");
 		this.pushService = pushService;
 	}
 

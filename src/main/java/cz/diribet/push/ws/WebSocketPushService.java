@@ -1,5 +1,6 @@
 package cz.diribet.push.ws;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 import java.time.Duration;
@@ -32,7 +33,6 @@ import org.apache.wicket.protocol.ws.api.IWebSocketConnection;
 import org.apache.wicket.protocol.ws.api.registry.IKey;
 import org.apache.wicket.protocol.ws.api.registry.IWebSocketConnectionRegistry;
 import org.apache.wicket.protocol.ws.api.registry.PageIdKey;
-import org.apache.wicket.util.lang.Args;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.wicketstuff.push.AbstractPushService;
@@ -165,7 +165,7 @@ public class WebSocketPushService extends AbstractPushService {
 	 * @return push service or {@code null}
 	 */
 	public static WebSocketPushService get(Application application) {
-		Args.notNull(application, "application");
+		requireNonNull(application, "application");
 
 		return get(application, WebSocketPushService::new);
 	}
@@ -181,14 +181,14 @@ public class WebSocketPushService extends AbstractPushService {
 	 * @return push service or {@code null}
 	 */
 	public static WebSocketPushService get(Application application, Function<Application, WebSocketPushService> mappingFunction) {
-		Args.notNull(application, "application");
-		Args.notNull(mappingFunction, "function");
+		requireNonNull(application, "application");
+		requireNonNull(mappingFunction, "function");
 
 		return INSTANCES.computeIfAbsent(application, mappingFunction);
 	}
 
 	static void onApplicationShutdown(Application application) {
-		Args.notNull(application, "application");
+		requireNonNull(application, "application");
 
 		WebSocketPushService service = INSTANCES.remove(application);
 		if (service != null) {
@@ -205,14 +205,14 @@ public class WebSocketPushService extends AbstractPushService {
 
 	@Override
 	public <EventType> IPushNode<EventType> installNode(Component component, IPushEventHandler<EventType> handler) {
-		Args.notNull(component, "component");
-		Args.notNull(handler, "handler");
+		requireNonNull(component, "component");
+		requireNonNull(handler, "handler");
 
 		WebSocketPushBehavior behavior = findWebSocketBehavior(component);
 
 		if (behavior == null) {
 			behavior = createWebSocketPushBehavior();
-			Args.notNull(behavior, "behavior");
+			requireNonNull(behavior, "behavior");
 
 			component.add(behavior);
 		}
@@ -230,8 +230,8 @@ public class WebSocketPushService extends AbstractPushService {
 	}
 
 	private <EventType> void autoConnect(Component component, WebSocketPushNode<EventType> node) {
-		Args.notNull(component, "component");
-		Args.notNull(node, "node");
+		requireNonNull(component, "component");
+		requireNonNull(node, "node");
 
 		Page page = component.getPage();
 
@@ -261,13 +261,13 @@ public class WebSocketPushService extends AbstractPushService {
 	}
 
 	private WebSocketPushBehavior findWebSocketBehavior(Component component) {
-		Args.notNull(component, "component");
+		requireNonNull(component, "component");
 		return component.getBehaviors(WebSocketPushBehavior.class).stream().findFirst().orElse(null);
 	}
 
 	@Override
 	public boolean isConnected(IPushNode<?> node) {
-		Args.notNull(node, "node");
+		requireNonNull(node, "node");
 
 		IWebSocketConnection webSocketConnection = connectionsByNodes.get(node);
 		return webSocketConnection != null && webSocketConnection.isOpen();
@@ -283,7 +283,7 @@ public class WebSocketPushService extends AbstractPushService {
 
 	@Override
 	public <EventType> void publish(IPushChannel<EventType> channel, EventType event) {
-		Args.notNull(channel, "channel");
+		requireNonNull(channel, "channel");
 
 		Set<IPushNode<?>> nodes = nodesByChannels.get(channel);
 		if (nodes == null) {
@@ -310,7 +310,7 @@ public class WebSocketPushService extends AbstractPushService {
 
 	@Override
 	public <EventType> void publish(IPushNode<EventType> node, EventType event) {
-		Args.notNull(node, "node");
+		requireNonNull(node, "node");
 
 		WebSocketPushEventContext<EventType> context = new WebSocketPushEventContext<>(event, null, this);
 
@@ -390,8 +390,8 @@ public class WebSocketPushService extends AbstractPushService {
 
 	@Override
 	public void uninstallNode(Component component, IPushNode<?> node) {
-		Args.notNull(component, "component");
-		Args.notNull(node, "node");
+		requireNonNull(component, "component");
+		requireNonNull(node, "node");
 
 		if (node instanceof WebSocketPushNode) {
 			WebSocketPushBehavior behavior = findWebSocketBehavior(component);
@@ -448,7 +448,7 @@ public class WebSocketPushService extends AbstractPushService {
 	 *            clean up interval, can't bew {@code null}
 	 */
 	public void setCleanupInterval(Duration interval) {
-		Args.notNull(interval, "interval");
+		requireNonNull(interval, "interval");
 
 		if (cleanupExecutorService != null) {
 			cleanupExecutorService.shutdownNow();

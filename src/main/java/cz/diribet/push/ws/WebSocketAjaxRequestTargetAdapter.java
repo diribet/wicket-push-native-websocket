@@ -1,5 +1,7 @@
 package cz.diribet.push.ws;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.Collection;
 
 import org.apache.wicket.Component;
@@ -12,7 +14,6 @@ import org.apache.wicket.request.ILogData;
 import org.apache.wicket.request.IRequestCycle;
 import org.apache.wicket.request.component.IRequestablePage;
 import org.apache.wicket.request.mapper.parameter.PageParameters;
-import org.apache.wicket.util.lang.Args;
 
 /**
  * An {@link AjaxRequestTarget} adapter for {@link WebSocketRequestHandler}.
@@ -33,7 +34,7 @@ class WebSocketAjaxRequestTargetAdapter implements AjaxRequestTarget {
 	//*******************************************
 
 	WebSocketAjaxRequestTargetAdapter(WebSocketRequestHandler handler) {
-		Args.notNull(handler, "handler");
+		requireNonNull(handler, "handler");
 		this.handler = handler;
 	}
 
