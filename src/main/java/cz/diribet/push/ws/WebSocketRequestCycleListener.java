@@ -1,5 +1,7 @@
 package cz.diribet.push.ws;
 
+import static org.apache.wicket.request.RequestHandlerExecutor.ReplaceHandlerException;
+
 import org.apache.wicket.Application;
 import org.apache.wicket.Session;
 import org.apache.wicket.core.request.handler.IPageProvider;
@@ -10,8 +12,7 @@ import org.apache.wicket.protocol.ws.api.IWebSocketConnection;
 import org.apache.wicket.protocol.ws.api.registry.IWebSocketConnectionRegistry;
 import org.apache.wicket.protocol.ws.api.registry.PageIdKey;
 import org.apache.wicket.request.IRequestHandler;
-import org.apache.wicket.request.RequestHandlerStack.ReplaceHandlerException;
-import org.apache.wicket.request.cycle.AbstractRequestCycleListener;
+import org.apache.wicket.request.cycle.IRequestCycleListener;
 import org.apache.wicket.request.cycle.RequestCycle;
 
 /**
@@ -21,12 +22,11 @@ import org.apache.wicket.request.cycle.RequestCycle;
  * @author vlasta
  *
  */
-public class WebSocketRequestCycleListener extends AbstractRequestCycleListener {
+public class WebSocketRequestCycleListener implements IRequestCycleListener {
 
 	private final Application application;
 
 	public WebSocketRequestCycleListener(Application application) {
-		super();
 		this.application = application;
 	}
 
@@ -36,7 +36,7 @@ public class WebSocketRequestCycleListener extends AbstractRequestCycleListener 
 			RenderPageRequestHandler renderPageHandler = (RenderPageRequestHandler) handler;
 
 			IPageProvider pageProvider = renderPageHandler.getPageProvider();
-			if (!pageProvider.isNewPageInstance()) {
+			if (pageProvider.hasPageInstance()) {
 				// existing page instance is rendered - check if it has WebSocket connection
 				String sessionId = Session.get().getId();
 				Integer pageId = renderPageHandler.getPageId();
