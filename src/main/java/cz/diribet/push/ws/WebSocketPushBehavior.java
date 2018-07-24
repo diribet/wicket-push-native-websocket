@@ -5,10 +5,17 @@ import static java.util.stream.Collectors.toList;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import javax.servlet.ServletContext;
+import javax.servlet.SessionTrackingMode;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
 
 import org.apache.wicket.Application;
 import org.apache.wicket.Component;
+import org.apache.wicket.protocol.http.WebApplication;
 import org.apache.wicket.protocol.ws.WebSocketSettings;
 import org.apache.wicket.protocol.ws.api.IWebSocketConnection;
 import org.apache.wicket.protocol.ws.api.WebSocketBehavior;
@@ -20,6 +27,8 @@ import org.apache.wicket.protocol.ws.api.message.ConnectedMessage;
 import org.apache.wicket.protocol.ws.api.message.IWebSocketPushMessage;
 import org.apache.wicket.protocol.ws.api.registry.IKey;
 import org.apache.wicket.protocol.ws.api.registry.IWebSocketConnectionRegistry;
+import org.apache.wicket.request.cycle.RequestCycle;
+import org.apache.wicket.request.http.WebRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.wicketstuff.push.IPushEventHandler;
@@ -175,6 +184,38 @@ public class WebSocketPushBehavior extends WebSocketBehavior {
 		removeAllNodes();
 
 		super.onClose(message);
+	}
+
+	// TODO: 24.07.2018 - Honza Krakora: remove after resolved https://issues.apache.org/jira/browse/WICKET-6571
+	@Override
+	protected CharSequence getSessionId(Component component) {
+		String sessionId = "";
+
+		WebApplication application = (WebApplication) component.getApplication();
+		ServletContext servletContext = application.getServletContext();
+
+		Set<SessionTrackingMode> effectiveSessionTrackingModes = servletContext.getEffectiveSessionTrackingModes();
+		Object containerRequest = component.getRequest().getContainerRequest();
+
+		if (effectiveSessionTrackingModes.size() == 1 &&
+			SessionTrackingMode.URL.equals(effectiveSessionTrackingModes.iterator().next())) {
+
+			sessionId = component.getSession().getId();
+
+		} else if (containerRequest instanceof HttpServletRequest) {
+			String sessionIdCookieName = servletContext.getSessionCookieConfig().getName();
+
+			WebRequest webRequest = (WebRequest) RequestCycle.get().getRequest();
+			Cookie sessionIdCookie = webRequest.getCookie(sessionIdCookieName);
+
+			HttpServletRequest httpServletRequest = (HttpServletRequest) containerRequest;
+
+			if (sessionIdCookie == null || httpServletRequest.isRequestedSessionIdValid() == false) {
+				sessionId = component.getSession().getId();
+			}
+		}
+
+		return sessionId;
 	}
 
 	private void removeAllNodes() {
