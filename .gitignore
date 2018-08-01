@@ -4,6 +4,10 @@
 .settings
 .settings/*
 
+# ignore idea files
+**/.idea
+**/*.iml
+
 # ignore maven generated files
 target
 /build/
